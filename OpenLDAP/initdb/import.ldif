@@ -1,0 +1,96 @@
+version: 1
+
+dn: ou=Groups,{{ LDAP_BASE_DN }}
+objectClass: organizationalUnit
+objectClass: top
+ou: Groups
+
+dn: ou=People,{{ LDAP_BASE_DN }}
+objectClass: top
+objectClass: organizationalUnit
+ou: People
+
+dn: uid=bbanner,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Bruce
+sn: Banner
+uid: bbanner
+userPassword: password
+
+dn: uid=srogers,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Steve
+sn: Rogers
+uid: srogers
+userPassword: password
+
+dn: uid=nromanoff,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Natasha Alianovna
+sn: Romanoff
+uid: nromanoff
+userPassword: password
+
+dn: uid=mrambeau,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Monica
+sn: Rambeau
+uid: mrambeau
+userPassword: password
+
+dn: uid=sstrange,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Stephen Vincent
+sn: Strange
+uid: sstrange
+userPassword: password
+
+dn: uid=astark,ou=People,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+cn: Anthony Edward
+sn: Stark
+uid: astark
+userPassword: password
+
+dn: uid=Middleware,ou=Groups,{{ LDAP_BASE_DN }}
+objectClass: top
+objectClass: groupOfUniqueNames
+objectClass: uidObject
+cn: Middleware
+uid: Middleware
+uniqueMember: uid=astark,ou=People,{{ LDAP_BASE_DN }}
+uniqueMember: uid=sstrange,ou=People,{{ LDAP_BASE_DN }}
+uniqueMember: uid=srogers,ou=People,{{ LDAP_BASE_DN }}
+uniqueMember: uid=nromanoff,ou=People,{{ LDAP_BASE_DN }}
+
+dn: uid=Infrastructure,ou=Groups,{{ LDAP_BASE_DN }}
+objectClass: top
+objectClass: groupOfUniqueNames
+objectClass: uidObject
+cn: Infrastructure
+uid: Infrastructure
+uniqueMember: uid=mrambeau,ou=People,{{ LDAP_BASE_DN }}
+uniqueMember: uid=bbanner,ou=People,{{ LDAP_BASE_DN }}
+
+
+
+dn: uid=Admin,ou=Groups,{{ LDAP_BASE_DN }}
+objectClass: top
+objectClass: groupOfUniqueNames
+objectClass: uidObject
+cn: Admin
+uid: Admin
+uniqueMember: uid=astark,ou=People,{{ LDAP_BASE_DN }}
+
