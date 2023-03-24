@@ -45,9 +45,12 @@
             <artifactId>jboss-annotations-api_1.3_spec</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.elytron.credentialstore</groupId>
-            <artifactId>elytron-credentialstore-api-impl</artifactId>
-            <version>1.0</version>
+            <groupId>org.wildfly.security</groupId>
+            <artifactId>wildfly-elytron-credential-store</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly.security</groupId>
+            <artifactId>wildfly-elytron-encryption</artifactId>
         </dependency>
 
     </dependencies>
