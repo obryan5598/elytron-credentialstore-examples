@@ -75,9 +75,9 @@ cp /path/to/your/repo/target/ldap-invocation.war /path/to/your/EAP/instance/depl
 It is possible to invoke exposed REST APIs to manage credentials in external properties file
 
 ### INSERT NEW CREDENTIAL IN EXTERNAL PROPERTIES FILE
-To insert a new credential mapped by the *myNewAlias* key, please run httpie in the following way:
+To insert the new credential *password* mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/insertPassword/ldap.password/admin
+http :8080/ldap-invocation/credentialstore/api/insertPassword/myAlias/password
 ```
 
 Once the credential has been added, please run the following CLI:
@@ -86,7 +86,7 @@ Once the credential has been added, please run the following CLI:
 ### UPDATE EXISTING CREDENTIAL IN EXTERNAL PROPERTIES FILE
 To update an existing credential mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/updatePassword/ldap.password/admin
+http :8080/ldap-invocation/credentialstore/api/updatePassword/myAlias/newPassword
 ```
 
 ### TODO
