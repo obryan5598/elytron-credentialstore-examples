@@ -80,9 +80,6 @@ To insert the new credential *password* mapped by the *myAlias* key, please run 
 http :8080/ldap-invocation/credentialstore/api/insertPassword/myAlias/password
 ```
 
-Once the credential has been added, please run the following CLI:
-
-
 ### UPDATE EXISTING CREDENTIAL IN EXTERNAL PROPERTIES FILE
 To update an existing credential mapped by the *myAlias* key, please run httpie in the following way:
 ```
