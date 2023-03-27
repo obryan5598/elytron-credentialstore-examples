@@ -24,6 +24,17 @@ sh run.sh
 
 ## EAP CONFIGURATION
 
+Before launching EAP via *jboss-eap-rhel.sh* (assuming a previous configuration of the *jboss-eap-instance* unit), it is necessary to update the file *jboss-eap.conf* adding the line:
+```
+JBOSS_OPTS="-P /path/to/your/EAP/instance/configuration/aliases.properties"
+```
+The given path references the external properties file which contains Elytron encrypted expressions (i.e. aliases and related credentials).
+It is now possible to run EAP as root: 
+```
+systemctl start jboss-eap-instance.service 
+```
+
+
 To configure the EAP instance it is necessary to create the masked password which will be used by the credential store:
 ```
 sh /path/to/your/EAP/installation/bin/elytron-tool.sh mask -s 20192018 -i 983  -d -x 123456
@@ -38,7 +49,6 @@ And then apply the following EAP CLI configurations:
 /subsystem=logging/console-handler=CONSOLE:add(enabled=true, level=INFO)
 /subsystem=logging/root-logger=ROOT:add-handler(name=CONSOLE)
 
-
 # SETTING UP CREDENTIAL STORE
 /subsystem=elytron/credential-store=decryptkeycs:add(create=true, modifiable=true, relative-to="jboss.server.config.dir", location="decryptkeycs.cs", implementation-properties={"keyStoreType"=>"JCEKS"}, credential-reference={clear-text="MASK-2ldsPZW4MPr;20192018;983"})
 /subsystem=elytron/credential-store=decryptkeycs:generate-secret-key(alias=mydecryptkey)
@@ -52,7 +62,7 @@ And then apply the following EAP CLI configurations:
 /system-property=elytrontool-path:add(value="/path/to/your/EAP/installation/bin/elytron-tool.sh")
 /system-property=decryptkey-alias:add(value="mydecryptkey")
 /system-property=encresolver-name:add(value=encresolver)
-whutdown --restart
+shutdown --restart
 ```
 
 Once completed, it is possible to deploy the artifact:
