@@ -53,7 +53,7 @@ And then apply the following EAP CLI configurations:
 /subsystem=logging/console-handler=CONSOLE:add(enabled=true, level=INFO)
 /subsystem=logging/root-logger=ROOT:add-handler(name=CONSOLE)
 
-# SETTING UP A NEW KEYSTORE CREDENTIAL STORE
+# SETTING UP A NEW KEYSTORE CREDENTIAL STORE (RESOLVER NAME 'encresolver' IS HARDCODED)
 /subsystem=elytron/credential-store=decryptkeycs:add(create=true, modifiable=true, relative-to="jboss.server.config.dir", path="decryptkeycs.cs", implementation-properties={"keyStoreType"=>"JCEKS"}, credential-reference={clear-text="MASK-2ldsPZW4MPr;20192018;983"})
 /subsystem=elytron/credential-store=decryptkeycs:generate-secret-key(alias=mydecryptkey)
 /subsystem=elytron/expression=encryption:add(resolvers=[{credential-store=decryptkeycs,name=encresolver, secret-key=mydecryptkey}])
