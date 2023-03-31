@@ -1,7 +1,10 @@
-package com.elytron.example.web;
+package com.elytron.api.web;
 
-import com.elytron.example.fs.FileUtils;
-import com.elytron.example.utils.Utils;
+import com.elytron.api.fs.FileUtils;
+import com.elytron.api.utils.CSPopulator;
+import com.elytron.api.utils.CredentialStoreInfo;
+import com.elytron.api.utils.Utils;
+import org.jboss.logging.Logger;
 import org.wildfly.security.credential.SecretKeyCredential;
 import org.wildfly.security.credential.store.CredentialStore;
 import org.wildfly.security.encryption.CipherUtil;
@@ -13,15 +16,23 @@ import javax.ws.rs.core.Response;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ApplicationPath("/credentialstore")
 @Path("/api")
 public class Api extends Application {
 
-    private static final String aliasesFile = System.getProperty("aliases-file");
-    private static final String eapInstanceConfigurationPath = System.getProperty("configuration-path");
-    private static final java.nio.file.Path propertiesFilePath = Paths.get(eapInstanceConfigurationPath + "/" + aliasesFile);
+    private static final Logger LOGGER = Logger.getLogger("cs-api");
+    private Utils utils;
+    private FileUtils fileUtils;
+    private CredentialStoreInfo credentialStoreInfo;
+
+    private void initialize() {
+        credentialStoreInfo = CSPopulator.retrieveInformationFromConfiguration();
+        fileUtils = new FileUtils(credentialStoreInfo.getAliasesFile(), credentialStoreInfo.getPrefix(), credentialStoreInfo.getResolverName());
+        utils = new Utils(credentialStoreInfo);
+    }
 
     /**
      * REST API able to resolve the encrypted credential directly from external properties file
@@ -42,25 +53,27 @@ public class Api extends Application {
         StringBuilder sb = new StringBuilder();
         sb.append("**********************************************").append(System.lineSeparator());
 
-        try {
-            CredentialStore credentialStore = Utils.provideCredentialStore();
-            secretKey = credentialStore.retrieve("mydecryptkey", SecretKeyCredential.class).getSecretKey();
+        initialize();
 
-            Stream<String> lines = Files.lines(propertiesFilePath);
+        try {
+            CredentialStore credentialStore = utils.provideCredentialStore();
+            secretKey = credentialStore.retrieve(credentialStoreInfo.getDecryptKeyAlias(), SecretKeyCredential.class).getSecretKey();
+
+            Stream<String> lines = Files.lines(Paths.get(credentialStoreInfo.getAliasesFile()));
             aliasLines = lines
                     .filter(line -> line.startsWith(myAlias))
-                    .peek(aliasLine -> System.out.println("Line with given alias: " + aliasLine))
-                    .toList();
+                    .peek(aliasLine -> LOGGER.trace("Line with given alias: " + aliasLine))
+                    .collect(Collectors.toList());
 
             if (aliasLines.size() > 0) {
-                encryptedString = Utils.retrieveEncryptedCredentialFromPropertiesLine(aliasLines.get(0));
+                encryptedString = utils.retrieveEncryptedCredentialFromPropertiesLine(aliasLines.get(0));
                 decryptedString = CipherUtil.decrypt(encryptedString, secretKey);
 
                 sb.append("Alias: ").append(myAlias).append(System.lineSeparator());
                 sb.append("Password: ").append(decryptedString).append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.out.print(sb);
+                LOGGER.trace(sb);
 
                 return Response.status(Response.Status.OK)
                         .entity(sb.toString())
@@ -68,10 +81,10 @@ public class Api extends Application {
 
             } else {
                 sb.append("ERROR:").append(System.lineSeparator());
-                sb.append("No alias \"").append(myAlias).append(" found.").append(System.lineSeparator());
+                sb.append("No alias \"").append(myAlias).append("\" found.").append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.err.print(sb);
+                LOGGER.error(sb);
 
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                         .entity(sb.toString())
@@ -84,7 +97,7 @@ public class Api extends Application {
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.print(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -112,11 +125,13 @@ public class Api extends Application {
         StringBuilder sb = new StringBuilder();
         sb.append("**********************************************").append(System.lineSeparator());
 
+        initialize();
+
         try {
-            Stream<String> stream = Files.lines(propertiesFilePath);
-            System.out.println("File Content:");
+            Stream<String> stream = Files.lines(Paths.get(credentialStoreInfo.getAliasesFile()));
+            LOGGER.trace("File Content:");
             stream.forEach(line -> {
-                System.out.println("Line: " + line);
+                LOGGER.trace("Line: " + line);
                 if (line.startsWith(myNewAlias)) {
                     oldLine[0] = line;
                 }
@@ -129,22 +144,22 @@ public class Api extends Application {
                 sb.append("No operation committed. ").append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.err.print(sb);
+                LOGGER.error(sb);
 
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                         .entity(sb.toString())
                         .build();
 
             } else { // if entry is new
-                newEncryptedCredential = Utils.encryptCredential(myNewCredential);
-                FileUtils.addEntry(propertiesFilePath, myNewAlias, newEncryptedCredential);
+                newEncryptedCredential = utils.encryptCredential(myNewCredential);
+                fileUtils.addEntry(myNewAlias, newEncryptedCredential);
 
                 sb.append("Inserted alias: ").append(myNewAlias).append(System.lineSeparator());
-                sb.append("New Credential: ").append(myNewCredential).append(System.lineSeparator());
+                //sb.append("New Credential: ").append(myNewCredential).append(System.lineSeparator());
                 sb.append("New Ciphered Credential: ").append(newEncryptedCredential).append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.out.print(sb);
+                LOGGER.info(sb);
 
                 return Response.status(Response.Status.OK)
                         .entity(sb.toString())
@@ -157,7 +172,7 @@ public class Api extends Application {
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.print(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -185,11 +200,13 @@ public class Api extends Application {
         StringBuilder sb = new StringBuilder();
         sb.append("**********************************************").append(System.lineSeparator());
 
+        initialize();
+
         try {
-            Stream<String> stream = Files.lines(propertiesFilePath);
-            System.out.println("File Content:");
+            Stream<String> stream = Files.lines(Paths.get(credentialStoreInfo.getAliasesFile()));
+            LOGGER.trace("File Content:");
             stream.forEach(line -> {
-                System.out.println("Line: " + line);
+                LOGGER.trace("Line: " + line);
                 if (line.startsWith(myAlias)) {
                     oldLine[0] = line;
                 }
@@ -197,15 +214,15 @@ public class Api extends Application {
             stream.close();
 
             if (oldLine[0] != null) { // if entry already exists
-                newEncryptedCredential = Utils.encryptCredential(myNewCredential);
-                FileUtils.updateEntry(propertiesFilePath, myAlias, Utils.retrieveEncryptedCredentialFromPropertiesLine(oldLine[0]), newEncryptedCredential);
+                newEncryptedCredential = utils.encryptCredential(myNewCredential);
+                fileUtils.updateEntry(myAlias, utils.retrieveEncryptedCredentialFromPropertiesLine(oldLine[0]), newEncryptedCredential);
 
                 sb.append("Updated alias: ").append(myAlias).append(System.lineSeparator());
-                sb.append("New Credential: ").append(myNewCredential).append(System.lineSeparator());
+                //sb.append("New Credential: ").append(myNewCredential).append(System.lineSeparator());
                 sb.append("New Ciphered Credential: ").append(newEncryptedCredential).append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.out.print(sb);
+                LOGGER.info(sb);
 
                 return Response.status(Response.Status.OK)
                         .entity(sb.toString())
@@ -217,7 +234,7 @@ public class Api extends Application {
                 sb.append("No operation committed. ").append(System.lineSeparator());
                 sb.append("**********************************************").append(System.lineSeparator());
 
-                System.err.print(sb);
+                LOGGER.error(sb);
 
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                         .entity(sb.toString())
@@ -230,7 +247,7 @@ public class Api extends Application {
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.print(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -243,19 +260,53 @@ public class Api extends Application {
 
 
 
-    // TODO Develop delete operation
     /**
-     * REST API which deletes an existing credential from an external properties file
+     * REST API which deletes a credential from an external properties file
      *
-     * @param myAlias         The alias referring to the credential that needs to be deleted
+     * @param myAlias      The alias to be deleted
      * @return
      */
-    /*
     @GET
     @Path("/deletePassword/{myAlias}")
     @Produces("application/text")
     public Response deletePassword(@PathParam("myAlias") String myAlias) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("**********************************************").append(System.lineSeparator());
+
+        initialize();
+
+        try {
+            Stream<String> stream = Files.lines(Paths.get(credentialStoreInfo.getAliasesFile()));
+            LOGGER.trace("File Content:");
+            stream.forEach(line -> LOGGER.trace("Line: " + line));
+            stream.close();
+
+            fileUtils.deleteEntry(myAlias);
+
+            sb.append("Deleted alias: ").append(myAlias).append(System.lineSeparator());
+            sb.append("**********************************************").append(System.lineSeparator());
+
+            LOGGER.info(sb);
+
+            return Response.status(Response.Status.OK)
+                    .entity(sb.toString())
+                    .build();
+
+
+        } catch (Exception e) {
+            sb.append("ERROR:").append(System.lineSeparator());
+            sb.append(e.getMessage()).append(System.lineSeparator());
+            sb.append("**********************************************").append(System.lineSeparator());
+
+            LOGGER.error(sb);
+            e.printStackTrace();
+
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(sb.toString())
+                    .build();
+
+        }
 
     }
-    */
+
 }

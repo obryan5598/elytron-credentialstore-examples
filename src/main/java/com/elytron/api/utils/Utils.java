@@ -1,6 +1,7 @@
-package com.elytron.example.utils;
+package com.elytron.api.utils;
 
-import com.elytron.example.exception.DecryptMaskedException;
+import com.elytron.api.exception.DecryptMaskedException;
+import org.jboss.logging.Logger;
 import org.wildfly.security.auth.server.IdentityCredentials;
 import org.wildfly.security.credential.PasswordCredential;
 import org.wildfly.security.credential.store.CredentialStore;
@@ -9,34 +10,27 @@ import org.wildfly.security.password.Password;
 import org.wildfly.security.password.interfaces.ClearPassword;
 import org.wildfly.security.util.PasswordBasedEncryptionUtil;
 
-import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
-import javax.naming.directory.InitialDirContext;
-import javax.naming.directory.SearchControls;
-import javax.naming.directory.SearchResult;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.Provider;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Utils {
 
+    private static final Logger LOGGER = Logger.getLogger("cs-api");
     private static final String WRONG_MASKED_PASSWORD = "Wrong masked password format. Expected format is \"MASK-<encoded payload>;<salt>;<iteration>\"";
     private static final Provider CREDENTIAL_STORE_PROVIDER = new WildFlyElytronCredentialStoreProvider();
-    private static final String resolverName = System.getProperty("encresolver-name");
-    private static final String csPath = System.getProperty("cs-path");
-    private static final String maskedPassword = System.getProperty("cs-mp");
-    private static final String elytronToolPath = System.getProperty("elytrontool-path");
-    private static final String decryptKeyAlias = System.getProperty("decryptkey-alias");
+    private static CredentialStoreInfo credentialStoreInfo = null;
 
+    public Utils(CredentialStoreInfo credentialStoreInfo) {
+        this.credentialStoreInfo = credentialStoreInfo;
+    }
 
     /**
      * Utility method which encrypts a credential
@@ -49,10 +43,23 @@ public class Utils {
         Process proc = null;
         String commandOutput = "";
         String newEncryptedCredential = "";
+        StringBuilder elytronToolCommand = new StringBuilder();
         Pattern pattern = Pattern.compile("'(.*?)'");
 
+        elytronToolCommand.append(credentialStoreInfo.getElytronToolPath())
+                .append(" credential-store --location ")
+                .append(credentialStoreInfo.getCsPath())
+                .append(" --encrypt ")
+                .append(credentialStoreInfo.getDecryptKeyAlias())
+                .append(" -p ")
+                .append(credentialStoreInfo.getMaskedPassword())
+                .append(" --clear-text ")
+                .append(myNewCredential);
+
+        LOGGER.trace("elytronToolCommand: " + elytronToolCommand.toString());
+
         //proc = Runtime.getRuntime().exec("java -jar /path/to/jboss-eap-7.4/jboss-modules.jar -mp /path/to/jboss-eap-7.4/modules/ org.wildfly.security.elytron-tool credential-store --location " + csPath + " --encrypt " + decryptKeyAlias + " -p " + maskedPassword + " --clear-text " + myNewCredential);
-        proc = Runtime.getRuntime().exec(elytronToolPath + " credential-store --location " + csPath + " --encrypt " + decryptKeyAlias + " -p " + maskedPassword + " --clear-text " + myNewCredential);
+        proc = Runtime.getRuntime().exec(elytronToolCommand.toString());
 
         // Then retreive the process output
         InputStream in = proc.getInputStream();
@@ -67,47 +74,9 @@ public class Utils {
             }
 
         }
+        LOGGER.trace("New encrypted credential: " + newEncryptedCredential);
 
         return newEncryptedCredential;
-
-    }
-
-
-    /**
-     * Utility method which filters the CN on the given InitialDirContext
-     * from the context "dc=superheroes,dc=com"
-     * @param dirContext The InitialDirContext to use
-     * @param cnValue The CN value to be searched
-     * @return
-     * @throws NamingException
-     */
-    public static String searchByCNOnLDAP(InitialDirContext dirContext, String cnValue) throws NamingException {
-        StringBuilder sb = new StringBuilder();
-        SearchControls sc = new SearchControls();
-        sc.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-        Hashtable<String, String> environment = (Hashtable<String, String>) dirContext.getEnvironment();
-        Enumeration<String> keys = environment.keys();
-
-        while (keys.hasMoreElements()) {
-            String key = keys.nextElement();
-            System.out.println("Key : " + key
-                    + "\t\t Value : "
-                    + environment.get(key));
-
-        }
-
-        NamingEnumeration<SearchResult> answer = dirContext.search("dc=superheroes,dc=com", "cn=" + cnValue, sc);
-        sb.append("Results:").append(System.lineSeparator());
-
-        while (answer.hasMore()) {
-            SearchResult sr = answer.next();
-            sb.append("Value: CN: ").append(sr.getAttributes().get("cn")).append(" SN: ").append(sr.getAttributes().get("sn")).append(System.lineSeparator());
-            System.out.println("Value: CN: " + sr.getAttributes().get("cn") + " SN: " + sr.getAttributes().get("sn"));
-
-        }
-
-        return sb.toString();
 
     }
 
@@ -119,7 +88,7 @@ public class Utils {
      * @return The encrypted credential
      */
     public static String retrieveEncryptedCredentialFromPropertiesLine(String currentLine) {
-        Pattern pattern = Pattern.compile("::" + resolverName + ":(.*)[}]");
+        Pattern pattern = Pattern.compile("::" + credentialStoreInfo.getResolverName() + ":(.*)[}]");
         String encryptedCredential = "";
 
         Matcher matcher = pattern.matcher(currentLine);
@@ -128,7 +97,7 @@ public class Utils {
             encryptedCredential = matcher.group(1);
         }
 
-        System.out.println("Encrypted Credential: " + encryptedCredential);
+        LOGGER.trace("Encrypted credential retrieved: " + encryptedCredential);
 
         return encryptedCredential;
 
@@ -143,7 +112,7 @@ public class Utils {
      * @throws Exception
      */
     public static Password decryptMasked(String masked) throws Exception {
-
+        LOGGER.trace("Masked password to decrypt: " + masked);
         int maskLength = "MASK-".length();
         if (masked == null || masked.length() <= maskLength) {
             throw new DecryptMaskedException(WRONG_MASKED_PASSWORD);
@@ -163,22 +132,25 @@ public class Utils {
                 .decryptMode()
                 .build();
 
-        return ClearPassword.createRaw(ClearPassword.ALGORITHM_CLEAR, encryptUtil.decodeAndDecrypt(encoded));
+        Password clearPassword = ClearPassword.createRaw(ClearPassword.ALGORITHM_CLEAR, encryptUtil.decodeAndDecrypt(encoded));
+        LOGGER.trace("Masked password decrypted");
+        return clearPassword;
 
     }
 
 
     public static CredentialStore provideCredentialStore() throws Exception {
-        Password storePassword = decryptMasked(maskedPassword);
+        Password storePassword = decryptMasked(credentialStoreInfo.getMaskedPassword());
         CredentialStore.ProtectionParameter protectionParameter = new CredentialStore.CredentialSourceProtectionParameter(IdentityCredentials.NONE.withCredential(new PasswordCredential(storePassword)));
         CredentialStore credentialStore = CredentialStore.getInstance("KeyStoreCredentialStore", CREDENTIAL_STORE_PROVIDER);
 
         Map<String, String> configuration = new HashMap<>();
-        configuration.put("location", csPath);
-        configuration.put("keyStoreType", "JCEKS");
+        configuration.put("location", credentialStoreInfo.getCsPath());
+        configuration.put("keyStoreType", credentialStoreInfo.getCsKeyStoreType());
         configuration.put("modifiable", "true");
 
         credentialStore.initialize(configuration, protectionParameter);
+        LOGGER.trace("Providing credential store...");
 
         return credentialStore;
 

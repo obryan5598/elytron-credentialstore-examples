@@ -1,4 +1,4 @@
-package com.elytron.example.exception;
+package com.elytron.api.exception;
 
 public class DecryptMaskedException extends Exception {
     public DecryptMaskedException(String exception) {

@@ -45,29 +45,31 @@ MASK-2ldsPZW4MPr;20192018;983
 
 And then apply the following EAP CLI configurations:
 ```
+# SETTING UP MANAGEMENT NATIVE INTERFACE (PORT 9999 IS HARDCODED AND SUMMED TO EVENTUAL PORT OFFSET)
+/socket-binding-group=standard-sockets/socket-binding=management-native:add(interface=management, port=9999)
+/core-service=management/management-interface=native-interface:add(socket-binding=management-native)
+
 # SETTING UP CONSOLE HANDLER WHETHER MISSING
 /subsystem=logging/console-handler=CONSOLE:add(enabled=true, level=INFO)
 /subsystem=logging/root-logger=ROOT:add-handler(name=CONSOLE)
 
-# SETTING UP CREDENTIAL STORE
-/subsystem=elytron/credential-store=decryptkeycs:add(create=true, modifiable=true, relative-to="jboss.server.config.dir", location="decryptkeycs.cs", implementation-properties={"keyStoreType"=>"JCEKS"}, credential-reference={clear-text="MASK-2ldsPZW4MPr;20192018;983"})
+# SETTING UP A NEW KEYSTORE CREDENTIAL STORE
+/subsystem=elytron/credential-store=decryptkeycs:add(create=true, modifiable=true, relative-to="jboss.server.config.dir", path="decryptkeycs.cs", implementation-properties={"keyStoreType"=>"JCEKS"}, credential-reference={clear-text="MASK-2ldsPZW4MPr;20192018;983"})
 /subsystem=elytron/credential-store=decryptkeycs:generate-secret-key(alias=mydecryptkey)
 /subsystem=elytron/expression=encryption:add(resolvers=[{credential-store=decryptkeycs,name=encresolver, secret-key=mydecryptkey}])
 
-# SETTING UP SYSTEM PROPERTIES USEFUL FOR DEMO
-/system-property=aliases-file:add(value="aliases.properties")
-/system-property=configuration-path:add(value="/path/to/your/EAP/instance/configuration")
-/system-property=cs-mp:add(value="MASK-2ldsPZW4MPr;20192018;983")
-/system-property=cs-path:add(value="/path/to/your/EAP/instance/configuration/decryptkeycs.cs")
-/system-property=elytrontool-path:add(value="/path/to/your/EAP/installation/bin/elytron-tool.sh")
-/system-property=decryptkey-alias:add(value="mydecryptkey")
-/system-property=encresolver-name:add(value=encresolver)
+# ALTERNATIVELY IT IS POSSIBLE TO SET UP A KEYSTORE CREDENTIAL STORE ALREADY PRESENT ON THE FILE SYSTEM
+/subsystem=elytron/credential-store=decryptkeycs:add(create=false, modifiable=false, relative-to="jboss.server.config.dir", path="decryptkeycs.cs", implementation-properties={"keyStoreType"=>"JCEKS"}, credential-reference={clear-text="MASK-2ldsPZW4MPr;20192018;983"})
+/subsystem=elytron/expression=encryption:add(resolvers=[{credential-store=decryptkeycs,name=encresolver, secret-key=mydecryptkey}])
+
+# SETTING UP EXTERNAL ALIASES PROPERTIES FILE PATH
+/system-property=aliases-file-path:add(value="/path/to/your/EAP/instance/configuration/aliases/aliases.properties")
 shutdown --restart
 ```
 
 Once completed, it is possible to deploy the artifact:
 ```
-cp /path/to/your/repo/target/ldap-invocation.war /path/to/your/EAP/instance/deployments/
+cp /path/to/your/repo/target/elytron-credentialstore-examples.war /path/to/your/EAP/instance/deployments/
 ```
 
 ## API EXECUTION
@@ -77,27 +79,26 @@ It is possible to invoke exposed REST APIs to manage credentials in external pro
 ### INSERT NEW CREDENTIAL IN EXTERNAL PROPERTIES FILE
 To insert the new credential *password* mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/insertPassword/myAlias/password
+http :8080/elytron-credentialstore-examples/credentialstore/api/insertPassword/myAlias/password
 ```
 
 ### UPDATE EXISTING CREDENTIAL IN EXTERNAL PROPERTIES FILE
 To update an existing credential mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/updatePassword/myAlias/newPassword
+http :8080/elytron-credentialstore-examples/credentialstore/api/updatePassword/myAlias/newPassword
 ```
 
-### TODO
 ### DELETE EXISTING CREDENTIAL FROM EXTERNAL PROPERTIES FILE
 To delete an existing credential mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/deletePassword/myAlias
+http :8080/elytron-credentialstore-examples/credentialstore/api/deletePassword/myAlias
 ```
 
 
 ### DECRYPT CREDENTIAL FROM EXTERNAL PROPERTIES FILE
 To decrypt an existing credential mapped by the *myAlias* key, please run httpie in the following way:
 ```
-http :8080/ldap-invocation/credentialstore/api/decryptExternalCredentialFromAlias/myAlias
+http :8080/elytron-credentialstore-examples/credentialstore/api/decryptExternalCredentialFromAlias/myAlias
 ```
 
 
@@ -111,7 +112,7 @@ It is possible to run some examples invoking the exposed REST APIs
 To retrieve a specific credential mapped by the *my-system-property* system property (which in turn references an alias from an external file), please run the followings:
 ```
 # INSERT A NEW CREDENTIAL WHICH WILL BE REFERENCED BY AN EAP SYSTEM PROPERTY
-http :8080/ldap-invocation/credentialstore/api/insertPassword/mysysprop.password/myPassword
+http :8080/elytron-credentialstore-examples/credentialstore/api/insertPassword/mysysprop.password/myPassword
 
 # RESPONSE
 HTTP/1.1 200 OK
@@ -132,7 +133,7 @@ shutdown --restart
 /system-property=my-system-property:add(value=${mysysprop.password})
 
 # RETRIEVE THE PASSWORD FROM A SYSTEM PROPERTY REFERENCING AN ALIAS IN EXTERNAL PROPERTIES FILE
-http :8080/ldap-invocation/credentialstore/example/resolveExternalCredentialFromSystemProperty/my-system-property
+http :8080/elytron-credentialstore-examples/credentialstore/example/resolveExternalCredentialFromSystemProperty/my-system-property
 
 
 # RESPONSE
@@ -148,7 +149,7 @@ Password: myPassword
 **********************************************
 
 # UPDATE THE CREDENTIAL WHICH WILL BE REFERENCED BY AN EAP SYSTEM PROPERTY
-http :8080/ldap-invocation/credentialstore/api/updatePassword/mysysprop.password/myNewPassword
+http :8080/elytron-credentialstore-examples/credentialstore/api/updatePassword/mysysprop.password/myNewPassword
 
 
 # RESPONSE
@@ -168,7 +169,7 @@ New Ciphered Credential: RUxZAUMQtlyblhcKI/YtVYQtUEw67vy+m+GP5QBgJHr2DjEmbAY=
 shutdown --restart
 
 # RETRIEVE THE NEW PASSWORD AFTER THE UPDATE
-http :8080/ldap-invocation/credentialstore/example/resolveExternalCredentialFromSystemProperty/my-system-property
+http :8080/elytron-credentialstore-examples/credentialstore/example/resolveExternalCredentialFromSystemProperty/my-system-property
 
 
 # RESPONSE
@@ -189,7 +190,7 @@ Password: myNewPassword
 To run a query in the LDAP context configured on EAP please run:
 ```
 # INSERT A NEW CREDENTIAL WHICH WILL BE REFERENCED IN THE EAP NAMING SUBSYSTEM
-http :8080/ldap-invocation/credentialstore/api/insertPassword/configuredldap.password/admin
+http :8080/elytron-credentialstore-examples/credentialstore/api/insertPassword/configuredldap.password/admin
 
 # RESPONSE
 HTTP/1.1 200 OK
@@ -210,7 +211,7 @@ shutdown --restart
 /subsystem=naming/binding=java\:global\/ldap:add(binding-type=external-context, cache=false, class="javax.naming.directory.InitialDirContext", module="org.jboss.as.naming", environment={"java.naming.factory.initial" => "com.sun.jndi.ldap.LdapCtxFactory", "java.naming.provider.url" => "ldap://localhost:1389", "java.naming.security.authentication" => "simple", "java.naming.security.principal" => "cn=admin,dc=superheroes,dc=com", "java.naming.security.credentials" => expression "${configuredldap.password}"})
 
 # INVOKE A QUERY ON LDAP BY GIVEN CN STEVE
-http :8080/ldap-invocation/credentialstore/example/lookupInConfiguredContextByCN/Steve
+http :8080/elytron-credentialstore-examples/credentialstore/example/lookupInConfiguredContextByCN/Steve
 
 
 # RESPONSE
@@ -230,7 +231,7 @@ Value: CN: cn: Steve SN: sn: Rogers
 To run a query in a LDAP context configured programmatically in the application (which uses a password from a system property referencing an alias from an external file) please run via httpie:
 ```
 # INSERT A NEW CREDENTIAL WHICH WILL BE REFERENCED IN THE DEDICATED SYSTEM PROPERTY
-http :8080/ldap-invocation/credentialstore/api/insertPassword/programmaticldap.password/admin
+http :8080/elytron-credentialstore-examples/credentialstore/api/insertPassword/programmaticldap.password/admin
 
 
 # RESPONSE
@@ -251,7 +252,7 @@ shutdown --restart
 /system-property=ldappwd-system-property:add(value=${programmaticldap.password})
 
 # INVOKE A QUERY ON LDAP BY GIVEN CN STEVE
-http :8080/ldap-invocation/credentialstore/example/lookupInCustomContextByCN/Steve
+http :8080/elytron-credentialstore-examples/credentialstore/example/lookupInCustomContextByCN/Steve
 
 
 # RESPONSE

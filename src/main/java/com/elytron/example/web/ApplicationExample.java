@@ -1,12 +1,8 @@
 package com.elytron.example.web;
 
-import com.elytron.example.fs.FileUtils;
-import com.elytron.example.utils.Utils;
-import org.wildfly.security.credential.SecretKeyCredential;
-import org.wildfly.security.credential.store.CredentialStore;
-import org.wildfly.security.encryption.CipherUtil;
+import com.elytron.example.utils.ApplicationExampleUtils;
+import org.jboss.logging.Logger;
 
-import javax.crypto.SecretKey;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -14,15 +10,13 @@ import javax.naming.directory.InitialDirContext;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Response;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Hashtable;
-import java.util.List;
-import java.util.stream.Stream;
 
 @ApplicationPath("/credentialstore")
 @Path("/example")
 public class ApplicationExample extends Application {
+
+    private static final Logger LOGGER = Logger.getLogger("cs-example");
 
     /**
      * REST API which retrieves JNDI LDAP Context from underlying EAP configuration
@@ -43,11 +37,11 @@ public class ApplicationExample extends Application {
             InitialContext initialContext = new InitialContext();
             InitialDirContext initialDirContext = (InitialDirContext) initialContext.lookup("java:global/ldap");
 
-            output = Utils.searchByCNOnLDAP(initialDirContext, cnValue);
+            output = ApplicationExampleUtils.searchByCNOnLDAP(initialDirContext, cnValue);
             sb.append(output);
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.out.print(sb);
+            LOGGER.info(sb);
 
         } catch (NamingException e) {
             sb.append("ERROR:").append(System.lineSeparator());
@@ -55,7 +49,7 @@ public class ApplicationExample extends Application {
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.println(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -99,11 +93,11 @@ public class ApplicationExample extends Application {
 
             initialDirContext = new InitialDirContext(environment);
 
-            output = Utils.searchByCNOnLDAP(initialDirContext, cnValue);
+            output = ApplicationExampleUtils.searchByCNOnLDAP(initialDirContext, cnValue);
             sb.append(output);
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.out.print(sb);
+            LOGGER.info(sb);
 
         } catch (NamingException e) {
             sb.append("ERROR:").append(System.lineSeparator());
@@ -111,7 +105,7 @@ public class ApplicationExample extends Application {
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.println(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -146,14 +140,14 @@ public class ApplicationExample extends Application {
             sb.append("Password: " + password).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.out.print(sb);
+            LOGGER.info(sb);
 
         } catch (Exception e) {
             sb.append("ERROR:").append(System.lineSeparator());
             sb.append(e.getMessage()).append(System.lineSeparator());
             sb.append("**********************************************").append(System.lineSeparator());
 
-            System.err.println(sb);
+            LOGGER.error(sb);
             e.printStackTrace();
 
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
